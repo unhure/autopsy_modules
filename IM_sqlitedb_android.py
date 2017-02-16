@@ -96,6 +96,11 @@ class IMDbIngestModule(DataSourceIngestModule):
         except:		
             artID_vk1 = Case.getCurrentCase().getSleuthkitCase().getArtifactTypeID("TSK_CHATS_VK1")
 
+        try:
+            artID_viber1 = Case.getCurrentCase().getSleuthkitCase().addArtifactType( "TSK_CHATS_VIBER1", "Viber".decode('UTF-8'))
+        except:		
+            artID_viber1 = Case.getCurrentCase().getSleuthkitCase().getArtifactTypeID("TSK_CHATS_VIBER1")
+
 	#artID_vk1 = Case.getCurrentCase().getSleuthkitCase().getArtifactTypeID("TSK_CHATS_VK1")
 
         try:
@@ -427,17 +432,17 @@ class IMDbIngestModule(DataSourceIngestModule):
                 return IngestModule.ProcessResult.OK
 
             while resultSet.next():
-                try:		 
-                    date_begin = int(resultSets.getString("date"))/1000;                   
-                    #self.log(Level.INFO, "date_begin = " + str(date_begin))
-                    date_end = date_begin+resultSets.getInt("duration");
-                    contact = resultSets.getString("contact");
-                    call_type = resultSets.getInt("type");
-                    number = resultSets.getString("number");
+                try:                
+                    contact = resultSet.getString("name");
+                    mess_type = resultSet.getInt("type");
+                    number = resultSet.getInt("date");
+                    photo_link = resultSet.getString("photo_link");
                 except SQLException as e:
                     self.log(Level.INFO, "Error getting values from contacts table (" + e.getMessage() + ")")
                     
-                art = file.newArtifact(BlackboardArtifact.ARTIFACT_TYPE.TSK_CALLLOG)
+                art = file.newArtifact(artID_viber1)
+
+                
 
                 if call_type == 1:
                     art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_FROM.getTypeID(), 
