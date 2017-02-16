@@ -382,14 +382,14 @@ class IMDbIngestModule(DataSourceIngestModule):
                     number = resultSet2.getString("number");
                 except SQLException as e:
                     self.log(Level.INFO, "Error getting values from contacts table (" + e.getMessage() + ")")
-                        
+                    
                 art2 = file.newArtifact(BlackboardArtifact.ARTIFACT_TYPE.TSK_CONTACT)
-                 
+                
                 art2.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_NAME.getTypeID(), 
-                                                     IMDbIngestModuleFactory.moduleName, name))
+                                                      IMDbIngestModuleFactory.moduleName, name))
 
                 art2.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_PHONE_NUMBER.getTypeID(), 
-                                                     IMDbIngestModuleFactory.moduleName, number))
+                                                      IMDbIngestModuleFactory.moduleName, number))
                 
                 art2.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_TAG_NAME.getTypeID(), 
                                                       IMDbIngestModuleFactory.moduleName, "Контакты Viber".decode('UTF-8')))
@@ -435,47 +435,25 @@ class IMDbIngestModule(DataSourceIngestModule):
                 try:                
                     contact = resultSet.getString("name");
                     mess_type = resultSet.getInt("type");
-                    number = resultSet.getInt("date");
+                    date = resultSet.getInt("date");
+                    text = resultSet.getString("text")
                     photo_link = resultSet.getString("photo_link");
                 except SQLException as e:
                     self.log(Level.INFO, "Error getting values from contacts table (" + e.getMessage() + ")")
                     
-                art = file.newArtifact(artID_viber1)
+                art = file.newArtifact(artID_viber1)                
 
+                if mess_type == 1:
+                    art.addAttribute(BlackboardAttribute(attID_sender, IMDbIngestModuleFactory.moduleName, contact))
+                elif mess_type == 2:
+                    art.addAttribute(BlackboardAttribute(attID_reciever, IMDbIngestModuleFactory.moduleName, contact))
+
+                art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_TEXT.getTypeID(), 
+                                                     IMDbIngestModuleFactory.moduleName, text))
+
+                art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME.getTypeID(), 
+                                                     IMDbIngestModuleFactory.moduleName, date))
                 
-
-                if call_type == 1:
-                    art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_FROM.getTypeID(), 
-                                                         IMDbIngestModuleFactory.moduleName, number))
-                    art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_TO.getTypeID(), 
-                                                         IMDbIngestModuleFactory.moduleName, "-"));
-                elif call_type == 2:
-                    art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_TO.getTypeID(), 
-                                                         IMDbIngestModuleFactory.moduleName, number));
-                    art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_FROM.getTypeID(), 
-                                                         IMDbIngestModuleFactory.moduleName, "-"));
-                    
-                art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME_START.getTypeID(), 
-                                                     IMDbIngestModuleFactory.moduleName, date_begin))
-
-                art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME_END.getTypeID(), 
-                                                     IMDbIngestModuleFactory.moduleName, date_end))
-
-                if call_type == 1:
-                    art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DIRECTION.getTypeID(), 
-                                                         IMDbIngestModuleFactory.moduleName, "Входящий".decode('UTF-8')));
-                elif call_type == 2:
-                    art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DIRECTION.getTypeID(), 
-                                                         IMDbIngestModuleFactory.moduleName, "Исходящий".decode('UTF-8')));
-
-                if contact is not None:
-                    art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_NAME.getTypeID(), 
-                                                         IMDbIngestModuleFactory.moduleName, contact));
-                else:
-                    art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_NAME.getTypeID(), 
-                                                         IMDbIngestModuleFactory.moduleName, "-"))
-
-                            
             IngestServices.getInstance().fireModuleDataEvent(
                 ModuleDataEvent(IMDbIngestModuleFactory.moduleName, 
                                 BlackboardArtifact.ARTIFACT_TYPE.TSK_MESSAGE, None))
@@ -484,7 +462,7 @@ class IMDbIngestModule(DataSourceIngestModule):
             os.remove(lclDbPath)
 
             message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
-                                                  "IM SQliteDB Analyzer", "Found %d viber_calls files" % fileCount)
+                                                  "IM SQliteDB Analyzer", "Found %d viber_messages files" % fileCount)
             IngestServices.getInstance().postMessage(message)
 
 
