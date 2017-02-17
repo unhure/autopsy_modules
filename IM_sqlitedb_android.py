@@ -426,7 +426,7 @@ class IMDbIngestModule(DataSourceIngestModule):
             
             try:
                 stmt = dbConn.createStatement()
-                resultSet = stmt.executeQuery("select (select display_name from participants_info where messages.address=number) || " (" || messages.address || ")" as name, messages.type as type, messages.body as text, messages.date as date, (select viber_image from participants_info where messages.address=number) as photo_link from messages ORDER BY  messages.date".decode('UTF-8'))
+                resultSet = stmt.executeQuery("select (select case when display_name IS NULL then member_id else display_name || ' ' || number end from participants_info where messages.address=member_id) || ' (ID: ' || messages.address || ')' as name, messages.type as type, messages.body as text, messages.date as date from messages ORDER BY messages.date".decode('UTF-8'))
             except SQLException as e:
                 self.log(Level.INFO, "Error querying database for contacts table (" + e.getMessage() + ")")
                 return IngestModule.ProcessResult.OK
@@ -435,18 +435,19 @@ class IMDbIngestModule(DataSourceIngestModule):
                 try:                
                     contact = resultSet.getString("name");
                     mess_type = resultSet.getInt("type");
-                    date = resultSet.getInt("date");
+                    date = int(resultSet.getString("date"))/1000;
                     text = resultSet.getString("text")
-                    photo_link = resultSet.getString("photo_link");
                 except SQLException as e:
                     self.log(Level.INFO, "Error getting values from contacts table (" + e.getMessage() + ")")
                     
                 art = file.newArtifact(artID_viber1)                
 
-                if mess_type == 1:
+                if mess_type == 0:
                     art.addAttribute(BlackboardAttribute(attID_sender, IMDbIngestModuleFactory.moduleName, contact))
-                elif mess_type == 2:
+                    art.addAttribute(BlackboardAttribute(attID_reciever, IMDbIngestModuleFactory.moduleName, " "))
+                elif mess_type == 1:
                     art.addAttribute(BlackboardAttribute(attID_reciever, IMDbIngestModuleFactory.moduleName, contact))
+                    art.addAttribute(BlackboardAttribute(attID_sender, IMDbIngestModuleFactory.moduleName, " "))
 
                 art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_TEXT.getTypeID(), 
                                                      IMDbIngestModuleFactory.moduleName, text))
