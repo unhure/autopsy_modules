@@ -88,8 +88,9 @@ class IMDbIngestModule(DataSourceIngestModule):
         kate_files = fileManager.findFiles(dataSource, "kate.db")
         viber_calls_files = fileManager.findFiles(dataSource, "viber_data")
         viber_messages_files = fileManager.findFiles(dataSource, "viber_messages")
+        skype_files=fileManager.findFiles(dataSource, "main.db")
         
-        numFiles = len(vk_files)+len(kate_files)+len(viber_calls_files)+len(viber_messages_files)
+        numFiles = len(vk_files)+len(kate_files)+len(viber_calls_files)+len(viber_messages_files)+len(skype_files)
         progressBar.switchToDeterminate(numFiles)
         try:
             artID_vk1 = Case.getCurrentCase().getSleuthkitCase().addArtifactType( "TSK_CHATS_VK1", "ВКонтакте".decode('UTF-8'))
@@ -107,6 +108,12 @@ class IMDbIngestModule(DataSourceIngestModule):
             artID_odnoclassniki = Case.getCurrentCase().getSleuthkitCase().addArtifactType( "TSK_CHATS_OK", "Одноклассники".decode('UTF-8'))
         except:		
             artID_odnoclassniki = Case.getCurrentCase().getSleuthkitCase().getArtifactTypeID("TSK_CHATS_OK")
+
+            
+        try:
+            artID_skype = Case.getCurrentCase().getSleuthkitCase().addArtifactType( "TSK_CHATS_SKYPE", "Skype".decode('UTF-8'))
+        except:		
+            artID_skype = Case.getCurrentCase().getSleuthkitCase().getArtifactTypeID("TSK_CHATS_SKYPE")
 
             
         try:
@@ -426,7 +433,7 @@ class IMDbIngestModule(DataSourceIngestModule):
             
             try:
                 stmt = dbConn.createStatement()
-                resultSet = stmt.executeQuery("select (select case when display_name IS NULL then member_id else display_name || ' ' || number end from participants_info where messages.address=member_id) || ' (ID: ' || messages.address || ')' as name, messages.type as type, messages.body as text, messages.date as date from messages ORDER BY messages.date".decode('UTF-8'))
+                resultSet = stmt.executeQuery("select (select case when display_name IS NULL then contact_id else display_name || ' ' || number end from participants_info, participants where messages.participant_id=participants._id and participants.participant_info_id=participants_info._id) || ' (' || messages.address || ')' as name, messages.type as type, messages.body as text, messages.date as date from messages ORDER BY messages.date".decode('UTF-8'))
             except SQLException as e:
                 self.log(Level.INFO, "Error querying database for contacts table (" + e.getMessage() + ")")
                 return IngestModule.ProcessResult.OK
@@ -466,7 +473,93 @@ class IMDbIngestModule(DataSourceIngestModule):
                                                   "IM SQliteDB Analyzer", "Found %d viber_messages files" % fileCount)
             IngestServices.getInstance().postMessage(message)
 
+            #Extract skype messages
+	for file in skype_files:		
+	    fileCount = 0
+            if self.context.isJobCancelled():
+                return IngestModule.ProcessResult.OK
+            
+            self.log(Level.INFO, "Processing file: " + file.getName())
+            fileCount += 1
 
+            lclDbPath = os.path.join(Case.getCurrentCase().getTempDirectory(), str(file.getId()) + ".db")
+            ContentUtils.writeToFile(file, File(lclDbPath))
+            
+            try: 
+                Class.forName("org.sqlite.JDBC").newInstance()
+                dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % lclDbPath)
+            except SQLException as e:
+                self.log(Level.INFO, "Could not open database file (not SQLite) " + file.getName() + " (" + e.getMessage() + ")")
+                return IngestModule.ProcessResult.OK
+            
+            try:
+                stmt = dbConn.createStatement()
+                resultSet_messages = stmt.executeQuery("select Messages.[id], Messages.[timestamp], Messages.[dialog_partner], Messages.[author], Messages.[body_xml], Messages.[reason], Messages.[convo_id], Messages.[type] from Messages where Messages.[chatmsg_type]=3 order by Messages.[timestamp]".decode('UTF-8'))
+                account_info = dbConn.createStatement().executeQuery("select Accounts.[fullname], Accounts.[skypename], Accounts.[emails], Accounts.[phone_home], Accounts.[phone_mobile] from Accounts".decode('UTF-8'))
+                resultSet_contacts = dbConn.createStatement().executeQuery("select Contacts.[fullname], Contacts.[skypename],  Contacts.[birthday], Contacts.[phone_home], Contacts.[phone_office],  Contacts.[phone_mobile], Contacts.[emails], Contacts.[homepage], Contacts.[about] from Contacts".decode('UTF-8'))
+                resultSet_calls = dbConn.createStatement().executeQuery("select Calls.[id], CallMembers.[type], Calls.[host_identity], CallMembers.[real_identity] ,Calls.[begin_timestamp], Calls.[duration],  CallMembers.[guid] from Calls, CallMembers where Calls.[id]=CallMembers.[call_db_id]".decode('UTF-8'))                
+            except SQLException as e:
+                self.log(Level.INFO, "Error querying database for skype (" + e.getMessage() + ")")
+                return IngestModule.ProcessResult.OK
+
+            account_tmp=[];            
+            try:
+                if account_info.getString("fullname") is not None:
+                    account_tmp.append(account_info.getString("fullname"));
+                    account_tmp.append(" ".decode('UTF-8'));
+                    account_tmp.append(account_info.getString("skypename"));
+                    account_tmp.append(" (".decode('UTF-8'));
+                    account_tmp.append(account_info.getString("emails"));
+                    account_tmp.append(")".decode('UTF-8'));
+                    account = ''.join(account_tmp);
+                else:
+                    account_tmp.append(account_info.getString("skypename"));
+                    account_tmp.append(" (".decode('UTF-8'));
+                    account_tmp.append(account_info.getString("emails"));
+                    account_tmp.append(")".decode('UTF-8'));
+                    account = ''.join(account_tmp);
+            except SQLException as e:
+                self.log(Level.INFO, "Error querying database for account table (skype) (" + e.getMessage() + ")")
+                
+            
+            while resultSet_messages.next():
+                try:
+                    mess_id = resultSet_messages.getString("id");
+                    dialog_partner = resultSet_messages.getString("dialog_partner");
+                    author = resultSet_messages.getString("author");
+                    date = int(resultSet_messages.getString("timestamp"));
+                    text = resultSet_messages.getString("body_xml");
+                except SQLException as e:
+                    self.log(Level.INFO, "Error getting values from messages table (skype) (" + e.getMessage() + ")")
+                    
+                    
+                art = file.newArtifact(artID_skype)                
+
+                art.addAttribute(BlackboardAttribute(attID_nr, IMDbIngestModuleFactory.moduleName, mess_id))
+                art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME.getTypeID(), 
+                                                     IMDbIngestModuleFactory.moduleName, date))
+                
+                if dialog_partner is None:
+                    art.addAttribute(BlackboardAttribute(attID_reciever, IMDbIngestModuleFactory.moduleName, account))
+                    art.addAttribute(BlackboardAttribute(attID_sender, IMDbIngestModuleFactory.moduleName, author))
+                else:
+                    art.addAttribute(BlackboardAttribute(attID_reciever, IMDbIngestModuleFactory.moduleName, dialog_partner))
+                    art.addAttribute(BlackboardAttribute(attID_sender, IMDbIngestModuleFactory.moduleName, account))
+
+                art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_TEXT.getTypeID(), 
+                                                     IMDbIngestModuleFactory.moduleName, text))
+
+                
+                IngestServices.getInstance().fireModuleDataEvent(
+                    ModuleDataEvent(IMDbIngestModuleFactory.moduleName, 
+                                    BlackboardArtifact.ARTIFACT_TYPE.TSK_MESSAGE, None))
+                stmt.close()
+                dbConn.close()
+                os.remove(lclDbPath)
+
+        message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
+                                              "IM SQliteDB Analyzer", "Found %d skype files" % fileCount)
+        IngestServices.getInstance().postMessage(message)
 
             
 
