@@ -244,28 +244,28 @@ class IMDbIngestModule(DataSourceIngestModule):
             
             try:
                 stmt = dbConn.createStatement()
-                resultSet = stmt.executeQuery("select message_id, (select users.last_name || ' ' || users.first_name || ' (' || messages.[account_id] || ')' from users where messages.[account_id]=users._id) as [sender_name], (select users.last_name || ' ' || users.first_name || ' (' || users._id || ')' from users where messages.uid=users._id) as [reciever_name], (select users.nickname from users where messages.uid=users._id) as [nickname], (select users.birthdate from users where messages.uid=users._id) as [rec_birthday], messages.title as [name_mess], messages.body as [text], messages.date as [date], case messages.read_state when 1 then 'Прочитано' else 'Не прочитано' end as [status1], case messages.is_out when 1 then 'Входящее' else 'Исходящее' end as [status2] from messages order by messages.date".decode('UTF-8'))
+                resultSet = stmt.executeQuery("select message_id, (select users.last_name || ' ' || users.first_name || ' (' || messages.[account_id] || ')' from users where messages.[account_id]=users._id) as [sender_name], (select users.last_name || ' ' || users.first_name || ' (' || users._id || ')' from users where messages.uid=users._id) as [reciever_name], (select users.nickname from users where messages.uid=users._id) as [nickname], (select users.birthdate from users where messages.uid=users._id) as [rec_birthday], messages.title as [name_mess], messages.body as [text], messages.date as [date], case messages.read_state when 1 then 'Прочитано' else 'Не прочитано' end as [status1], case messages.is_out when 0 then 'Входящее' else 'Исходящее' end as [status2] from messages order by messages.date".decode('UTF-8'))
             except SQLException as e:
                 self.log(Level.INFO, "Error querying database for contacts table (" + e.getMessage() + ")")
                 return IngestModule.ProcessResult.OK
 
             while resultSet.next():
-                try:		 
-                    mess_id  = resultSet.getString("message_id")
-                    date = resultSet.getInt("date")
-                    sender = resultSet.getString("sender_name")
-                    info_arr = [];
-                    info_arr.append(resultSet.getString("reciever_name"));
-                    if  resultSet.getString("nickname")!="" and resultSet.getString("nickname") is not None:
+                try:
+		    mess_id  = resultSet.getString("message_id")
+		    date = resultSet.getInt("date")
+		    sender = resultSet.getString("sender_name")
+		    mess = resultSet.getString("text")
+		    info_arr = []
+                    info_arr.append(resultSet.getString("reciever_name"))
+		    if  resultSet.getString("nickname")!="" and resultSet.getString("nickname") is not None:
                         info_arr.append(" (логин: ".decode('UTF-8')) 
                         info_arr.append(resultSet.getString("nickname"))
-                        info_arr.append(") ".decode('UTF-8'));
-                    if resultSet.getString("rec_birthday")!="" and resultSet.getString("rec_birthday") is not None:
+                        info_arr.append(") ".decode('UTF-8'))
+		    if resultSet.getString("rec_birthday")!="" and resultSet.getString("rec_birthday") is not None:
                         info_arr.append(", День рождения: ".decode('UTF-8'))
                         info_arr.append(resultSet.getString("rec_birthday"));
-                        reciever=''.join(info_arr);                       
-		        mess =resultSet.getString("text")
-                        status_arr=[]
+                    reciever=''.join(info_arr);                       
+                    status_arr=[]
                     if  resultSet.getString("name_mess")!="" and resultSet.getString("name_mess") is not None:
                         status_arr.append("Название переписки: \"".decode('UTF-8'))
                         status_arr.append(resultSet.getString("name_mess"))
@@ -274,7 +274,7 @@ class IMDbIngestModule(DataSourceIngestModule):
                         status_arr.append(resultSet.getString("status1"))
                         status_arr.append(", ".decode('UTF-8'))
                         status_arr.append(resultSet.getString("status2"))
-                        status=''.join(status_arr)
+                    status=''.join(status_arr)
                         #"Название сообщения:"+resultSet.getString("name_mess")+"Статус сообщения: "+resultSet.getString("status")
                 except SQLException as e:
                     self.log(Level.INFO, "Error getting values from contacts table (" + e.getMessage() + ")")
@@ -290,9 +290,13 @@ class IMDbIngestModule(DataSourceIngestModule):
                 
                 art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME.getTypeID(), 
                                                      IMDbIngestModuleFactory.moduleName, date))
-                
-                art.addAttribute(BlackboardAttribute(attID_sender, IMDbIngestModuleFactory.moduleName, sender))
-                art.addAttribute(BlackboardAttribute(attID_reciever, IMDbIngestModuleFactory.moduleName, reciever))
+
+                if resultSet.getString("status2")=="Входящее":
+                    art.addAttribute(BlackboardAttribute(attID_sender, IMDbIngestModuleFactory.moduleName, reciever))
+                    art.addAttribute(BlackboardAttribute(attID_reciever, IMDbIngestModuleFactory.moduleName, sender))
+                else:
+                    art.addAttribute(BlackboardAttribute(attID_sender, IMDbIngestModuleFactory.moduleName, sender))
+                    art.addAttribute(BlackboardAttribute(attID_reciever, IMDbIngestModuleFactory.moduleName, reciever))
                 
 
                 art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_TEXT.getTypeID(), 
@@ -336,7 +340,7 @@ class IMDbIngestModule(DataSourceIngestModule):
                 resultSets = stmt.executeQuery("select calls.[_id] as [ID], (select phonebookcontact.[display_name] || ' (ID: ' || phonebookdata.[contact_id] ||')' from phonebookdata, phonebookcontact where calls.[number]=phonebookdata.[data2] and phonebookdata.[contact_id]=phonebookcontact.[native_id]) as [contact], calls.[number] as [number], calls.[viber_call_type] as [type], calls.[date], calls.[duration] from calls order by calls.[date]".decode('UTF-8'))               
                 resultSet2 = dbConn.createStatement().executeQuery("select phonebookcontact.display_name as name, phonebookdata.data2 as number from phonebookcontact, phonebookdata where phonebookcontact._id=phonebookdata.contact_id ORDER BY phonebookcontact.display_name".decode('UTF-8'))
             except SQLException as e:
-                self.log(Level.INFO, "Error querying database for contacts table (" + e.getMessage() + ")")
+                self.log(Level.INFO, "Error querying database for calls or phonebookcontact, phonebookdata table (viber) (" + e.getMessage() + ")")
                 return IngestModule.ProcessResult.OK
 
             while resultSets.next():
@@ -497,7 +501,7 @@ class IMDbIngestModule(DataSourceIngestModule):
                 resultSet_messages = stmt.executeQuery("select Messages.[id], Messages.[timestamp], Messages.[dialog_partner], Messages.[author], Messages.[body_xml], Messages.[reason], Messages.[convo_id], Messages.[type] from Messages where Messages.[chatmsg_type]=3 order by Messages.[timestamp]".decode('UTF-8'))
                 account_info = dbConn.createStatement().executeQuery("select Accounts.[fullname], Accounts.[skypename], Accounts.[emails], Accounts.[phone_home], Accounts.[phone_mobile] from Accounts".decode('UTF-8'))
                 resultSet_contacts = dbConn.createStatement().executeQuery("select Contacts.[fullname], Contacts.[skypename],  Contacts.[birthday], Contacts.[phone_home], Contacts.[phone_office],  Contacts.[phone_mobile], Contacts.[emails], Contacts.[homepage], Contacts.[about] from Contacts".decode('UTF-8'))
-                resultSet_calls = dbConn.createStatement().executeQuery("select Calls.[id], CallMembers.[type], Calls.[host_identity], CallMembers.[real_identity] ,Calls.[begin_timestamp], Calls.[duration],  CallMembers.[guid] from Calls, CallMembers where Calls.[id]=CallMembers.[call_db_id]".decode('UTF-8'))                
+                resultSet_calls = dbConn.createStatement().executeQuery("select Calls.[id], CallMembers.[type], Calls.[host_identity], CallMembers.[real_identity],  CallMembers.[dispname] , Calls.[begin_timestamp], Calls.[duration],  CallMembers.[guid] from Calls, CallMembers where Calls.[id]=CallMembers.[call_db_id]".decode('UTF-8'))                
             except SQLException as e:
                 self.log(Level.INFO, "Error querying database for skype (" + e.getMessage() + ")")
                 return IngestModule.ProcessResult.OK
@@ -549,7 +553,90 @@ class IMDbIngestModule(DataSourceIngestModule):
                 art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_TEXT.getTypeID(), 
                                                      IMDbIngestModuleFactory.moduleName, text))
 
+
+            while resultSet_contacts.next():
+                try:
+                    if resultSet_contacts.getString("fullname") is None:
+                        fullname = resultSet_contacts.getString("skypename");
+                    else:
+                        tmp=[]
+                        tmp.append(resultSet_contacts.getString("fullname"));
+                        tmp.append(" ".decode('UTF-8'));
+                        tmp.append(resultSet_contacts.getString("skypename"));
+                        fullname = "".join(tmp)
+                        
+                    home_phone = resultSet_contacts.getString("phone_home");
+                    phone_office = resultSet_contacts.getString("phone_office")
+                    phone_mobile = resultSet_contacts.getString("phone_mobile")
+                    email = resultSet_contacts.getString("emails")
+                except SQLException as e:
+                    self.log(Level.INFO, "Error getting values from contacts table (skype) (" + e.getMessage() + ")")
+
+                art = file.newArtifact(BlackboardArtifact.ARTIFACT_TYPE.TSK_CONTACT)                
+
+                art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_NAME.getTypeID(), 
+                                                     IMDbIngestModuleFactory.moduleName, fullname))
+
+                art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_HOME.getTypeID(), 
+                                                     IMDbIngestModuleFactory.moduleName, home_phone))
+
+                art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_OFFICE.getTypeID(), 
+                                                     IMDbIngestModuleFactory.moduleName, phone_office))
+
+                art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_MOBILE.getTypeID(), 
+                                                     IMDbIngestModuleFactory.moduleName, phone_mobile))
                 
+                art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_TAG_NAME.getTypeID(), 
+                                                     IMDbIngestModuleFactory.moduleName, "Контакты Skype".decode('UTF-8')))
+
+
+                while resultSet_calls.next():
+                    try:		 
+                        date_begin = int(resultSets_calls.getString("begin_timestamp"))/1000;                   
+                        #self.log(Level.INFO, "date_begin = " + str(date_begin))
+                        date_end = date_begin+resultSets_calls.getInt("duration");
+                        contact = resultSets_calls.getString("real_identity");
+                        dispname = resultSets_calls.getString("dispname");
+                        call_type = resultSets_calls.getInt("type");
+                    except SQLException as e:
+                        self.log(Level.INFO, "Error getting values from calls table (skype) (" + e.getMessage() + ")")
+                        
+                    art = file.newArtifact(BlackboardArtifact.ARTIFACT_TYPE.TSK_CALLLOG)
+                    
+                    tmp=[]
+                    tmp.append(contact)
+                    tmp.append(" ".decode('UTF-8'));
+                    tmp.append(dispname)
+                    fullname = "".join(tmp)
+                    
+                    if call_type == 1:
+                        art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_FROM.getTypeID(), 
+                                                             IMDbIngestModuleFactory.moduleName, fullname))
+                        art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_TO.getTypeID(), 
+                                                             IMDbIngestModuleFactory.moduleName, "-"));
+                    elif call_type == 2:
+                        art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_TO.getTypeID(), 
+                                                             IMDbIngestModuleFactory.moduleName, fullname));
+                        art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_FROM.getTypeID(), 
+                                                             IMDbIngestModuleFactory.moduleName, "-"));
+                        
+                        art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME_START.getTypeID(), 
+                                                             IMDbIngestModuleFactory.moduleName, date_begin))
+                        
+                        art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME_END.getTypeID(), 
+                                                             IMDbIngestModuleFactory.moduleName, date_end))
+                        
+                        if call_type == 1:
+                            art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DIRECTION.getTypeID(), 
+                                                                 IMDbIngestModuleFactory.moduleName, "Входящий".decode('UTF-8')));
+                        elif call_type == 2:
+                            art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DIRECTION.getTypeID(), 
+                                                                 IMDbIngestModuleFactory.moduleName, "Исходящий".decode('UTF-8')));
+                            
+                            art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_NAME.getTypeID(), 
+                                                                 IMDbIngestModuleFactory.moduleName, fullname));
+
+                    
                 IngestServices.getInstance().fireModuleDataEvent(
                     ModuleDataEvent(IMDbIngestModuleFactory.moduleName, 
                                     BlackboardArtifact.ARTIFACT_TYPE.TSK_MESSAGE, None))
