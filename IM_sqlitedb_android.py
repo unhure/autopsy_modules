@@ -89,8 +89,9 @@ class IMDbIngestModule(DataSourceIngestModule):
         viber_calls_files = fileManager.findFiles(dataSource, "viber_data")
         viber_messages_files = fileManager.findFiles(dataSource, "viber_messages")
         skype_files=fileManager.findFiles(dataSource, "main.db")
+        gmail_files=fileManager.findFiles(dataSource, "mailstore.%", "com.google.android.%")
         
-        numFiles = len(vk_files)+len(kate_files)+len(viber_calls_files)+len(viber_messages_files)+len(skype_files)
+        numFiles = len(vk_files)+len(kate_files)+len(viber_calls_files)+len(viber_messages_files)+len(skype_files)+len(gmail_files)
         self.log(Level.INFO, "found " + str(numFiles) + " files")
         progressBar.switchToDeterminate(numFiles)
 
@@ -121,6 +122,11 @@ class IMDbIngestModule(DataSourceIngestModule):
             artID_skype = Case.getCurrentCase().getSleuthkitCase().addArtifactType( "TSK_CHATS_SKYPE", "Skype - сообщения".decode('UTF-8'))
         except:		
             artID_skype = Case.getCurrentCase().getSleuthkitCase().getArtifactTypeID("TSK_CHATS_SKYPE")
+
+        try:
+            artID_gmail = Case.getCurrentCase().getSleuthkitCase().addArtifactType( "TSK_CHATS_GMAIL", "Gmail - электронная почта".decode('UTF-8'))
+        except:		
+            artID_gmail = Case.getCurrentCase().getSleuthkitCase().getArtifactTypeID("TSK_CHATS_GMAIL")       
             
 
         #create new attributes to artifact                
@@ -143,7 +149,7 @@ class IMDbIngestModule(DataSourceIngestModule):
             attID_status = Case.getCurrentCase().getSleuthkitCase().addArtifactAttributeType("TSK_MESS_STATUS", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Дополнительная информация".decode('UTF-8'))
         except:		
             attID_status=Case.getCurrentCase().getSleuthkitCase().getAttributeType("TSK_MESS_STATUS")
-           
+            
 	for file in vk_files:		
             # Check if the user pressed cancel while we were busy
             if self.context.isJobCancelled():
@@ -216,7 +222,7 @@ class IMDbIngestModule(DataSourceIngestModule):
                 IngestServices.getInstance().fireModuleDataEvent(
                     ModuleDataEvent(IMDbIngestModuleFactory.moduleName, 
                                     BlackboardArtifact.ARTIFACT_TYPE.TSK_MESSAGE, None))
- 
+                
             while resultSet_contacts.next():
                 try:
                     user = resultSet_contacts.getString("firstname")+" "+resultSet_contacts.getString("lastname")+" ("+resultSet_contacts.getString("uid")+")"
@@ -242,7 +248,7 @@ class IMDbIngestModule(DataSourceIngestModule):
                     artID_contact = Case.getCurrentCase().getSleuthkitCase().getArtifactTypeID("TSK_CHATS_CONTACTS_VK")
                     
                 art = file.newArtifact(artID_contact)
-                                
+                
                 art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_NAME_PERSON.getTypeID(), 
                                                      IMDbIngestModuleFactory.moduleName, user))
 
@@ -250,12 +256,12 @@ class IMDbIngestModule(DataSourceIngestModule):
                                                      IMDbIngestModuleFactory.moduleName, photo))
                 
                 art.addAttribute(BlackboardAttribute(attID_status, IMDbIngestModuleFactory.moduleName, status))
-                                              
+                
                 # Fire an event to notify the UI and others that there are new artifacts
                 IngestServices.getInstance().fireModuleDataEvent(
                     ModuleDataEvent(IMDbIngestModuleFactory.moduleName, 
                                     BlackboardArtifact.ARTIFACT_TYPE.TSK_MESSAGE, None))
-                            
+                
                 # Clean up
             stmt.close()
             stmt2.close()
@@ -310,22 +316,22 @@ class IMDbIngestModule(DataSourceIngestModule):
 		    if birthday!="" and birthday is not None:
                         info_arr.append(", День рождения: ".decode('UTF-8'))
                         info_arr.append(birthday);
-                    reciever=''.join(info_arr);                       
-                    status_arr=[]
+                        reciever=''.join(info_arr);                       
+                        status_arr=[]
                     if  name_mess!="" and name_mess is not None:
                         status_arr.append("Название переписки: \"".decode('UTF-8'))
                         status_arr.append(name_mess)
                         status_arr.append("\"; ".decode('UTF-8'))
-                    status_arr.append("Статус сообщения: ".decode('UTF-8'))
-                    status_arr.append(resultSet.getString("status1"))
-                    status=''.join(status_arr)
+                        status_arr.append("Статус сообщения: ".decode('UTF-8'))
+                        status_arr.append(resultSet.getString("status1"))
+                        status=''.join(status_arr)
                 except SQLException as e:
                     self.log(Level.INFO, "Error getting values from kate message table (" + e.getMessage() + ")")
                     
                 # Make an artifact on the blackboard, TSK_CONTACT and give it attributes for each of the fields
                 #art = file.newArtifact(BlackboardArtifact.ARTIFACT_TYPE.TSK_VKdb)
                 art = file.newArtifact(artID_vk_kate)
-                                                               
+                
 	 	art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_MESSAGE_TYPE, 
                                                      IMDbIngestModuleFactory.moduleName, "Kate Mobile"))
                 
@@ -340,7 +346,7 @@ class IMDbIngestModule(DataSourceIngestModule):
                 else:
                     art.addAttribute(BlackboardAttribute(attID_sender, IMDbIngestModuleFactory.moduleName, sender))
                     art.addAttribute(BlackboardAttribute(attID_reciever, IMDbIngestModuleFactory.moduleName, reciever))
-                
+                    
 
                 art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_TEXT.getTypeID(), 
                                                      IMDbIngestModuleFactory.moduleName, mess))
@@ -377,7 +383,7 @@ class IMDbIngestModule(DataSourceIngestModule):
                     if status is not None and status!="":    
                         status_arr.append("Указанный пользователем статус: ".decode('UTF-8'))
                         status_arr.append(status)
-                    status=''.join(status_arr)
+                        status=''.join(status_arr)
                 except SQLException as e:
                     self.log(Level.INFO, "Error getting values from kate contacts table (" + e.getMessage() + ")")
                     
@@ -424,11 +430,11 @@ class IMDbIngestModule(DataSourceIngestModule):
                                                      IMDbIngestModuleFactory.moduleName, date))
                 art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_TEXT.getTypeID(), 
                                                      IMDbIngestModuleFactory.moduleName, text))
-                                 
+                
                 IngestServices.getInstance().fireModuleDataEvent(
                     ModuleDataEvent(IMDbIngestModuleFactory.moduleName, 
                                     BlackboardArtifact.ARTIFACT_TYPE.TSK_MESSAGE, None))
-            
+                
             # Clean up
             stmt.close()
             stmt2.close()
@@ -454,7 +460,7 @@ class IMDbIngestModule(DataSourceIngestModule):
             except SQLException as e:
                 self.log(Level.INFO, "Could not open database file (not SQLite) " + file.getName() + " (" + e.getMessage() + ")")
                 return IngestModule.ProcessResult.OK
-           
+            
             try:
                 stmt = dbConn.createStatement()
                 resultSets = stmt.executeQuery("select calls.[_id] as [ID], (select phonebookcontact.[display_name] || ' (ID: ' || phonebookdata.[contact_id] ||')' from phonebookdata, phonebookcontact where calls.[number]=phonebookdata.[data2] and phonebookdata.[contact_id]=phonebookcontact.[native_id]) as [contact], calls.[number] as [number], calls.[viber_call_type] as [type], calls.[date], calls.[duration] from calls order by calls.[date]".decode('UTF-8'))
@@ -541,11 +547,11 @@ class IMDbIngestModule(DataSourceIngestModule):
                 IngestServices.getInstance().fireModuleDataEvent(
                     ModuleDataEvent(IMDbIngestModuleFactory.moduleName, 
                                     BlackboardArtifact.ARTIFACT_TYPE.TSK_MESSAGE, None))
-            stmt.close()
-            stmt2.close()
-            dbConn.close()
-            os.remove(lclDbPath)
-            progressBar.progress(fileCount)
+                stmt.close()
+                stmt2.close()
+                dbConn.close()
+                os.remove(lclDbPath)
+                progressBar.progress(fileCount)
 
         #Extract viber messages
 	for file in viber_messages_files:		
@@ -572,7 +578,7 @@ class IMDbIngestModule(DataSourceIngestModule):
             except SQLException as e:
                 self.log(Level.INFO, "Error check viber table (" + e.getMessage() + ")")
                 base_version = 0
-                         
+                
             if  base_version == 0:
                 try:
                     resultSet = stmt.executeQuery("select case type when 0 then (select case when display_name IS NULL then contact_id else display_name || ' ' || number end from participants_info, participants where messages.participant_id=participants._id and participants.participant_info_id=participants_info._id) when 1 then (select case when display_name IS NULL then contact_id else display_name || ' ' || number end from participants_info, participants where messages.participant_id=participants._id and participants.participant_info_id=participants_info._id) || ' (' || 'Аккаунт мобильного телефона)' end as name, (select case when display_name IS NULL then contact_id else display_name || ' ' || number end from participants_info where messages.address=participants_info.[number])  as name2, (select display_name || ' ' || number || ' (Аккаунт мобильного телефона)' from participants_info where participant_type=0) as account, messages.type as type, case when messages.body='' or body is NULL then extra_mime else messages.body end as text, messages.date as date from messages ORDER BY messages.date".decode('UTF-8'))
@@ -585,7 +591,7 @@ class IMDbIngestModule(DataSourceIngestModule):
                 except SQLException as e:
                     self.log(Level.INFO, "Error querying database for viber messages table (" + e.getMessage() + ")")
                     return IngestModule.ProcessResult.OK
-            
+                
             while resultSet.next():
                 try:                
                     contact = resultSet.getString("name");
@@ -615,11 +621,11 @@ class IMDbIngestModule(DataSourceIngestModule):
                 IngestServices.getInstance().fireModuleDataEvent(
                     ModuleDataEvent(IMDbIngestModuleFactory.moduleName, 
                                     BlackboardArtifact.ARTIFACT_TYPE.TSK_MESSAGE, None))
-            stmt.close()
-            dbConn.close()
-            os.remove(lclDbPath)
-            progressBar.progress(fileCount)
-            social_app.append("Viber".decode('UTF-8'))
+                stmt.close()
+                dbConn.close()
+                os.remove(lclDbPath)
+                progressBar.progress(fileCount)
+                social_app.append("Viber".decode('UTF-8'))
 
             #Extract skype messages
 	for file in skype_files:		
@@ -734,7 +740,7 @@ class IMDbIngestModule(DataSourceIngestModule):
 
                 art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_MOBILE.getTypeID(), 
                                                      IMDbIngestModuleFactory.moduleName, phone_mobile))
-                                  
+                
             while resultSet_calls.next():
                 try:		 
                     date_begin = int(resultSet_calls.getString("begin_timestamp"));                   
@@ -751,17 +757,17 @@ class IMDbIngestModule(DataSourceIngestModule):
                     artID_calllog_skype = Case.getCurrentCase().getSleuthkitCase().addArtifactType( "TSK_CHATS_CALLLOG_SKYPE", "Skype - журнал звонков".decode('UTF-8'))
                 except:		
                     artID_calllog_skype = Case.getCurrentCase().getSleuthkitCase().getArtifactTypeID("TSK_CHATS_CALLLOG_SKYPE")    
-                                            
+                    
                 art = file.newArtifact(artID_calllog_skype)
-            
+                
                 tmp=[]
                 tmp.append(dispname)
                 if contact is not None:
                     tmp.append(" (".decode('UTF-8'))
                     tmp.append(contact)
                     tmp.append(")".decode('UTF-8'));
-                fullname = "".join(tmp)
-                
+                    fullname = "".join(tmp)
+                    
                 if call_type == 1:
                     art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_PHONE_NUMBER_FROM.getTypeID(), 
                                                          IMDbIngestModuleFactory.moduleName, fullname))
@@ -775,31 +781,116 @@ class IMDbIngestModule(DataSourceIngestModule):
                     
                 art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME_START.getTypeID(), 
                                                      IMDbIngestModuleFactory.moduleName, date_begin))
-                        
+                
                 art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME_END.getTypeID(), 
                                                      IMDbIngestModuleFactory.moduleName, date_end))
-                    
+                
                 if call_type == 1:
                     art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DIRECTION.getTypeID(), 
                                                          IMDbIngestModuleFactory.moduleName, "Входящий".decode('UTF-8')));
                 elif call_type == 2:
                     art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DIRECTION.getTypeID(), 
                                                          IMDbIngestModuleFactory.moduleName, "Исходящий".decode('UTF-8')));
-                                                
+                    
                 IngestServices.getInstance().fireModuleDataEvent(
                     ModuleDataEvent(IMDbIngestModuleFactory.moduleName, 
                                     BlackboardArtifact.ARTIFACT_TYPE.TSK_MESSAGE, None))
-                
+
             stmt.close()
             dbConn.close()
             os.remove(lclDbPath)
             progressBar.progress(fileCount)
-                
-            social_app.append("Skype".decode('UTF-8'))
+            if skype_files.index(file) == 0:
+                social_app.append("Skype".decode('UTF-8'));
 
+
+            #Extract gmail messages
+	for file in gmail_files:		
+            if self.context.isJobCancelled():
+                return IngestModule.ProcessResult.OK
+            
+            self.log(Level.INFO, "Processing file: " + file.getName())
+            fileCount += 1
+            lclDbPath = os.path.join(Case.getCurrentCase().getTempDirectory(), str(file.getId()) + ".db")
+            ContentUtils.writeToFile(file, File(lclDbPath))
+            
+            try: 
+                Class.forName("org.sqlite.JDBC").newInstance()
+                dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % lclDbPath)
+            except SQLException as e:
+                self.log(Level.INFO, "Could not open database file (not SQLite) " + file.getName() + " (" + e.getMessage() + ")")
+                return IngestModule.ProcessResult.OK
+            
+            try:
+                stmt = dbConn.createStatement()
+                resultSet_messages = stmt.executeQuery("select messages.[messageId], messages.[fromAddress], messages.[toAddresses], messages.[dateSentMs], messages.[dateReceivedMs], messages.[subject],  messages.[snippet], messages.[body], messages.[joinedAttachmentInfos] from messages order by messages.[dateSentMs]".decode('UTF-8'))                
+            except SQLException as e:
+                self.log(Level.INFO, "Error querying database for gmail (" + e.getMessage() + ")")
+                return IngestModule.ProcessResult.OK
+            
+            while resultSet_messages.next():
+                try:
+                    mess_id = resultSet_messages.getString("messageId");                   
+                    dialog_partner = resultSet_messages.getString("toAddresses");
+                    author = resultSet_messages.getString("fromAddress");
+                    date_sent = int(resultSet_messages.getString("dateSentMs"))/1000;
+                    date_receive = int(resultSet_messages.getString("dateReceivedMs"))/1000;
+                    text = resultSet_messages.getString("body");
+                    
+                    subject = resultSet_messages.getString("subject");
+                    snippet = resultSet_messages.getString("snippet");
+                    attachment = resultSet_messages.getString("joinedAttachmentInfos");
+                    
+                except SQLException as e:
+                    self.log(Level.INFO, "Error getting values from messages table (gmail) (" + e.getMessage() + ")")
+                    
+                status_arr=[]
+                if  subject is not None and subject!="":
+                    status_arr.append("Тема письма: \"".decode('UTF-8'))
+                    status_arr.append(attachment)
+                    status_arr.append("\"; ".decode('UTF-8'))
+                if  snippet is not None and snippet!="":
+                    status_arr.append("Фрагмент письма (снипет): \"".decode('UTF-8'))
+                    status_arr.append(snippet)
+                    status_arr.append("\"; ".decode('UTF-8'))
+                if  attachment is not None and attachment!="":
+                    status_arr.append("Вложения: \"".decode('UTF-8'))
+                    status_arr.append(attachment)
+                    status_arr.append("\"; ".decode('UTF-8'))
+                status=' '.join(status_arr)
+                
+                art = file.newArtifact(artID_gmail)                
+
+                art.addAttribute(BlackboardAttribute(attID_nr, IMDbIngestModuleFactory.moduleName, mess_id))
+                art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME_SENT.getTypeID(), 
+                                                     IMDbIngestModuleFactory.moduleName, date_sent))                
+                art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME_RCVD.getTypeID(), 
+                                                     IMDbIngestModuleFactory.moduleName, date_receive))
+                
+                art.addAttribute(BlackboardAttribute(attID_sender, IMDbIngestModuleFactory.moduleName, author))
+                art.addAttribute(BlackboardAttribute(attID_reciever, IMDbIngestModuleFactory.moduleName, dialog_partner))
+
+                art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_TEXT.getTypeID(), 
+                                                     IMDbIngestModuleFactory.moduleName, text))
+                
+                art.addAttribute(BlackboardAttribute(attID_status, IMDbIngestModuleFactory.moduleName, status))
+
+                                                                                  
+                IngestServices.getInstance().fireModuleDataEvent(
+                    ModuleDataEvent(IMDbIngestModuleFactory.moduleName, 
+                                    BlackboardArtifact.ARTIFACT_TYPE.TSK_MESSAGE, None))
+
+            stmt.close()
+            dbConn.close()
+            os.remove(lclDbPath)
+            progressBar.progress(fileCount)
+            if gmail_files.index(file) == 0:
+                social_app.append("Gmail".decode('UTF-8'));
+
+                
         finded_app=", ".join(social_app)
         message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
-                                              "IM SQliteDB Analyzer", "Finded databases of %s " % finded_app)
+                                              "IM SQliteDB Analyzer", "Обнаружены базы данных %s ".decode('UTF-8') % finded_app)
         IngestServices.getInstance().postMessage(message)
 
 
