@@ -1,4 +1,4 @@
-# autopsy_modules
+# Autopsy modules
 "IM_sqlitedb_android.py" модуль для Autopsy, копирующий информацию из следующих ниже баз данных sqlite (Android):
 
        - "vk.db", "kate.db" (ВКонтакте);
@@ -7,5 +7,5 @@
 
 Тестировался на Autopsy 4.3.0
 
-# H1 Установка
-Скопировать "*.py" файл по пути "%APPDATA%\autopsy\python_modules"
+## Установка
+Скопировать "*.py" файлы по пути "%APPDATA%\autopsy\python_modules\" в любой созданный каталог.
