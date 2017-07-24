@@ -1,5 +1,5 @@
 # Autopsy modules
-"IM_sqlitedb_android.py" модуль для Autopsy, копирующий информацию из следующих ниже баз данных sqlite (Android):
+**"IM_sqlitedb_android.py"** модуль для Autopsy, копирующий информацию из следующих ниже баз данных sqlite (Android):
 
        - "vk.db", "kate.db" (ВКонтакте);
        - "viber_data", "viber_messages" (Viber);
