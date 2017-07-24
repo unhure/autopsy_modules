@@ -8,4 +8,8 @@
 Тестировался на Autopsy 4.3.0
 
 ## Установка
+<<<<<<< HEAD
 Скопировать "*.py" файлы по пути "%APPDATA%\autopsy\python_modules\" в любой созданный каталог.
+=======
+Скопировать "*.py" файл по пути "%APPDATA%\autopsy\python_modules"
+>>>>>>> 24870261c94ed98656e0cfa1b782e5d538ec8426
