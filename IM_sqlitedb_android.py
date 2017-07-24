@@ -31,7 +31,7 @@ from org.sleuthkit.autopsy.casemodule.services import FileManager
 # to create instances of the modules that will do the analysis.
 class IMDbIngestModuleFactory(IngestModuleFactoryAdapter):
 
-    moduleName = "IM SQliteDB Analyzer"
+    moduleName = "IM SQLiteDB Analyzer"
 
     def getModuleDisplayName(self):
         return self.moduleName

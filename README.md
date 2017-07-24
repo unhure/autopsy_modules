@@ -3,5 +3,6 @@
 
        - "vk.db", "kate.db" (ВКонтакте);
        - "viber_data", "viber_messages" (Viber);
+       - "main.db" (Skype)
 
 Тестировался на Autopsy 4.3.0
