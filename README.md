@@ -6,3 +6,6 @@
        - "main.db" (Skype)
 
 Тестировался на Autopsy 4.3.0
+
+#Установка
+Скопировать "*.py" файл по пути "%APPDATA%\autopsy\python_modules"
