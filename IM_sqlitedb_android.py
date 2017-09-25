@@ -90,6 +90,7 @@ class IMDbIngestModule(DataSourceIngestModule):
         viber_messages_files = fileManager.findFiles(dataSource, "viber_messages")
         skype_files=fileManager.findFiles(dataSource, "main.db")
         gmail_files=fileManager.findFiles(dataSource, "mailstore.%", "com.google.android.%")
+        aquamail_files=fileManager.findFiles(dataSource, "Messages.%", "org.kman.AquaMail")
         
         numFiles = len(vk_files)+len(kate_files)+len(viber_calls_files)+len(viber_messages_files)+len(skype_files)+len(gmail_files)
         self.log(Level.INFO, "found " + str(numFiles) + " files")
@@ -128,7 +129,11 @@ class IMDbIngestModule(DataSourceIngestModule):
         except:		
             artID_gmail = Case.getCurrentCase().getSleuthkitCase().getArtifactTypeID("TSK_CHATS_GMAIL")       
             
-
+        try:
+            artID_aquamail = Case.getCurrentCase().getSleuthkitCase().addArtifactType( "TSK_CHATS_AQUAMAIL", "Aquamail - электронная почта".decode('UTF-8'))
+        except:		
+            artID_aquamail = Case.getCurrentCase().getSleuthkitCase().getArtifactTypeID("TSK_CHATS_AQUAMAIL")
+            
         #create new attributes to artifact                
         try:
             attID_nr = Case.getCurrentCase().getSleuthkitCase().addArtifactAttributeType("TSK_MESS_ID", BlackboardAttribute.TSK_BLACKBOARD_ATTRIBUTE_VALUE_TYPE.STRING, "Идентификатор сообщения".decode('UTF-8'))
@@ -847,7 +852,7 @@ class IMDbIngestModule(DataSourceIngestModule):
                 status_arr=[]
                 if  subject is not None and subject!="":
                     status_arr.append("Тема письма: \"".decode('UTF-8'))
-                    status_arr.append(attachment)
+                    status_arr.append(subject)
                     status_arr.append("\"; ".decode('UTF-8'))
                 if  snippet is not None and snippet!="":
                     status_arr.append("Фрагмент письма (снипет): \"".decode('UTF-8'))
@@ -887,6 +892,88 @@ class IMDbIngestModule(DataSourceIngestModule):
             if gmail_files.index(file) == 0:
                 social_app.append("Gmail".decode('UTF-8'));
 
+
+           #Extract AquaMail messages
+	for file in aquamail_files:		
+            if self.context.isJobCancelled():
+                return IngestModule.ProcessResult.OK
+            
+            self.log(Level.INFO, "Processing file: " + file.getName())
+            fileCount += 1
+            lclDbPath = os.path.join(Case.getCurrentCase().getTempDirectory(), str(file.getId()) + ".db")
+            ContentUtils.writeToFile(file, File(lclDbPath))
+            
+            try: 
+                Class.forName("org.sqlite.JDBC").newInstance()
+                dbConn = DriverManager.getConnection("jdbc:sqlite:%s"  % lclDbPath)
+            except SQLException as e:
+                self.log(Level.INFO, "Could not open database file (not SQLite) " + file.getName() + " (" + e.getMessage() + ")")
+                return IngestModule.ProcessResult.OK
+            
+            try:
+                stmt = dbConn.createStatement()
+                resultSet_messages = stmt.executeQuery("select message.[msg_id], message.[who_from], message.[who_to], message.[when_date], message.[subject],  message.[has_attachments], message.[preview_attachments], message.[body_alt_content_utf8], (select group_concat(stored_file_name, '; ') from (select part.[stored_file_name] from part where message.[_id]=part.[message_id])) as joinedAttachmentInfos from message order by message.[when_date]".decode('UTF-8'))                
+            except SQLException as e:
+                self.log(Level.INFO, "Error querying database for aquamail (" + e.getMessage() + ")")
+                return IngestModule.ProcessResult.OK
+            
+            while resultSet_messages.next():
+                try:
+                    mess_id = resultSet_messages.getString("msg_id");                   
+                    dialog_partner = resultSet_messages.getString("who_to");
+                    author = resultSet_messages.getString("who_from");
+                    date_sent = int(resultSet_messages.getString("when_date"))/1000;
+                    text = resultSet_messages.getString("body_alt_content_utf8");
+                    
+                    subject = resultSet_messages.getString("subject");
+                    preview_attachments=resultSet_messages.getString("preview_attachments");
+                    attachment = resultSet_messages.getString("joinedAttachmentInfos");
+                    
+                except SQLException as e:
+                    self.log(Level.INFO, "Error getting values from messages table (aquamail) (" + e.getMessage() + ")")
+                    
+                status_arr=[]
+                if  subject is not None and subject!="":
+                    status_arr.append("Тема письма: \"".decode('UTF-8'))
+                    status_arr.append(subject)
+                    status_arr.append("\"; ".decode('UTF-8'))
+                if  preview_attachments is not None and preview_attachments!="":
+                    status_arr.append("Вложения (имена файлов): \"".decode('UTF-8'))
+                    status_arr.append(preview_attachments)
+                if  attachment is not None and attachment!="":
+                    status_arr.append("\"; ".decode('UTF-8'))
+                    status_arr.append("Вложения (путь к файлам): \"".decode('UTF-8'))
+                    status_arr.append(attachment)
+                    status_arr.append("\"; ".decode('UTF-8'))
+                status=' '.join(status_arr)
+                    
+                art = file.newArtifact(artID_aquamail)                
+
+                art.addAttribute(BlackboardAttribute(attID_nr, IMDbIngestModuleFactory.moduleName, mess_id))
+                art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_DATETIME_SENT.getTypeID(), 
+                                                     IMDbIngestModuleFactory.moduleName, date_sent))                
+                
+                art.addAttribute(BlackboardAttribute(attID_sender, IMDbIngestModuleFactory.moduleName, author))
+                art.addAttribute(BlackboardAttribute(attID_reciever, IMDbIngestModuleFactory.moduleName, dialog_partner))
+
+                art.addAttribute(BlackboardAttribute(BlackboardAttribute.ATTRIBUTE_TYPE.TSK_TEXT.getTypeID(), 
+                                                     IMDbIngestModuleFactory.moduleName, text))
+                
+                art.addAttribute(BlackboardAttribute(attID_status, IMDbIngestModuleFactory.moduleName, status))
+
+                                                                                  
+                IngestServices.getInstance().fireModuleDataEvent(
+                    ModuleDataEvent(IMDbIngestModuleFactory.moduleName, 
+                                    BlackboardArtifact.ARTIFACT_TYPE.TSK_MESSAGE, None))
+
+            stmt.close()
+            dbConn.close()
+            os.remove(lclDbPath)
+            progressBar.progress(fileCount)
+            if aquamail_files.index(file) == 0:
+                social_app.append("Aquamail".decode('UTF-8'));
+                
+                
                 
         finded_app=", ".join(social_app)
         message = IngestMessage.createMessage(IngestMessage.MessageType.DATA,
