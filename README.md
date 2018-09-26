@@ -5,7 +5,7 @@
        - "viber_data", "viber_messages" (Viber);
        - "main.db" (Skype)
        - "mailstore%" (gmail)
-       - "Messages.%" (AquaMail)
+       - "Messages.%" (aquaMail)
        - "odnklassniki.db", "tamtam_messages" (Одноклассники)
 
 Тестировался на Autopsy 4.3.0
