@@ -6,6 +6,7 @@
        - "main.db" (Skype)
        - "mailstore%" (gmail)
        - "Messages.%" (AquaMail)
+       - "odnklassniki.db", "tamtam_messages" (Одноклассники)
 
 Тестировался на Autopsy 4.3.0
 
