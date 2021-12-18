@@ -68,15 +68,15 @@ def gmail(self,  progressBar, gmail_files):
                     self.log(Level.INFO, "Error getting values from gmail (" + e.getMessage() + ")")
 
                 status_arr = []
-                if subject is not None and subject != "":
+                if subject:
                     status_arr.append("Тема письма: \"".decode('UTF-8'))
                     status_arr.append(subject)
                     status_arr.append("\"; ".decode('UTF-8'))
-                if snippet is not None and snippet != "":
+                if snippet:
                     status_arr.append("Фрагмент письма (снипет): \"".decode('UTF-8'))
                     status_arr.append(snippet)
                     status_arr.append("\"; ".decode('UTF-8'))
-                if attachment is not None and attachment != "":
+                if attachment:
                     status_arr.append("Вложения: \"".decode('UTF-8'))
                     status_arr.append(attachment)
                     status_arr.append("\"; ".decode('UTF-8'))
@@ -97,9 +97,8 @@ def gmail(self,  progressBar, gmail_files):
                     IM_sqlitedb_android.ModuleDataEvent(imdbIngestModuleFactory.moduleName,
                                                         IM_sqlitedb_android.BlackboardArtifact.ARTIFACT_TYPE.TSK_MESSAGE, None))
 
-        file_count = IM_sqlitedb_android.IMDbIngestModule.get_count(self) + 1
-        IM_sqlitedb_android.IMDbIngestModule.set_count(self, file_count)
-        progressBar.progress(file_count)
+        IM_sqlitedb_android.IMDbIngestModule.set_count(self, 1) 
+        progressBar.progress(IM_sqlitedb_android.IMDbIngestModule.get_count(self))
         if gmail_files.index(file) == 0:
             message = IM_sqlitedb_android.IngestMessage.createMessage(IM_sqlitedb_android.IngestMessage.MessageType.DATA,
                                                                       imdbIngestModuleFactory.moduleName, "Обнаружены базы данных: Gmail".decode('UTF-8'))

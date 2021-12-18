@@ -7,6 +7,8 @@ from java.io import File
 from java.sql import SQLException
 import binascii
 import os
+import json
+import sre
 
 
 def vk(self, progressBar, vk_files):
@@ -59,9 +61,16 @@ def vk(self, progressBar, vk_files):
         # Query the contacts table in the database and get all columns.
         try:
             resultSet = stmt.executeQuery("select messages.mid as ID, messages.peer as [peer], messages.[time] as [date], (select users.lastname || ' ' || users.firstname from users where users.uid=messages.sender) || ' (id_peer: '|| messages.sender || ')' as [Sender], case messages.sender=messages.peer when 0 then (select users.lastname || ' ' || users.firstname from users where users.uid=messages.peer) || ' (id_peer: ' || messages.peer || ')' else  (select users.lastname || ' ' || users.firstname || ' (id: ' || users.uid || ' - учетная запись мобильного телефона)' from users, messages where messages.peer!=messages.sender and users.uid=messages.sender) end as [User_who_recieved_messages], messages.text as [text], hex(messages.attachments) as attachments from  messages order by messages.[time]".decode('UTF-8'))
+            db_case = 1
         except SQLException as e:
             self.log(Level.INFO, "Error querying database for vk messages (" + e.getMessage() + ")")
 
+        try:
+            resultSet = stmt.executeQuery("select account_name, record_data as json_string, (select profile.record_data from profile where messages.account_name=profile.profile_id) as profile, (select messages_profiles.record_data from messages_profiles where messages.dialog_id=messages_profiles.dialog_id) as chat_info from messages order by message_date".decode('UTF-8'))
+            db_case = 2
+        except SQLException as e:
+            self.log(Level.INFO, "Error querying database for vk messages in json (" + e.getMessage() + ")")    
+        
         try:
             resultSet_contacts = stmt2.executeQuery("select users.uid as [uid], users.lastname as [lastname], users.firstname as [firstname], users.photo_small as [photo], users.[is_friend] as [friend], birthdays.bday || '.' || birthdays.bmonth || '.' || birthdays.byear as [birthdays] from users left join birthdays on birthdays.uid=users.uid ORDER BY users.lastname")
         except SQLException as e:
@@ -71,29 +80,74 @@ def vk(self, progressBar, vk_files):
             resultSet_contacts = stmt3.executeQuery("select users.uid as [uid], users.lastname as [lastname], users.firstname as [firstname], users.photo_small as [photo], users.[is_friend] as [friend], users.bday || '.' || users.bmonth || '.' || users.byear as [birthdays] from users ORDER BY users.lastname")
         except SQLException as e:
             self.log(Level.INFO, "Error querying database for vk contacts 2 (" + e.getMessage() + ")")
+            
+        try:
+            resultSet_contacts = stmt2.executeQuery("select friends.friend_id as [uid], friends.friend_last_name as [lastname], friends.friend_first_name as [firstname], friends.friend_avatar as [photo], 1 as [friend], friends.friend_bdate as [birthdays] from friends ORDER BY friends.friend_last_name")
+        except SQLException as e:
+            self.log(Level.INFO, "Error querying database for vk contacts 3 (" + e.getMessage() + ")")
 
         # Cycle through each row and create artifacts
         if 'resultSet' in locals():
             while resultSet.next():
-                try:
-                    ID = resultSet.getString("ID")
-                    date = resultSet.getInt("date")
-                    sender = resultSet.getString("Sender")
-                    if resultSet.getString("User_who_recieved_messages") is None:
-                        reciever = "Идентификатор беседы (чата): ".decode('UTF-8')+resultSet.getString("peer")
-                        mess = resultSet.getString("text")
-                        tmp_string = binascii.unhexlify(resultSet.getString("attachments"))
-                    else:
-                        reciever = resultSet.getString("User_who_recieved_messages")
-                        mess = resultSet.getString("text")
-                        tmp_string = binascii.unhexlify(resultSet.getString("attachments"))
-                    if tmp_string != "" and tmp_string is not None:
-                        status = "Приложение: ".decode('UTF-8')+tmp_string.decode("UTF-8", 'ignore');
-                    else:
-                        status = " "
-                except SQLException as e:
-                    self.log(Level.INFO, "Error getting values from vk message table (" + e.getMessage() + ")")
+                if db_case == 1:
+                    try:
+                        ID = resultSet.getString("ID")
+                        date = resultSet.getInt("date")
+                        sender = resultSet.getString("Sender")
+                        if resultSet.getString("User_who_recieved_messages") is None:
+                            reciever = "Идентификатор беседы (чата): ".decode('UTF-8')+resultSet.getString("peer")
+                            mess = resultSet.getString("text")
+                            tmp_string = binascii.unhexlify(resultSet.getString("attachments"))
+                        else:
+                            reciever = resultSet.getString("User_who_recieved_messages")
+                            mess = resultSet.getString("text")
+                            tmp_string = binascii.unhexlify(resultSet.getString("attachments"))
+                        if tmp_string:
+                            status = "Приложение: ".decode('UTF-8')+tmp_string.decode("UTF-8", 'ignore');
+                        else:
+                            status = " "
+                    except SQLException as e:
+                        self.log(Level.INFO, "Error getting values from vk message table (" + e.getMessage() + ")")
+                elif db_case == 2:
+                    try:
+                        json_data = json.loads(resultSet.getString("json_string"))
+                        profile = json.loads(resultSet.getString("profile"))
+                        chat_info_json_str = resultSet.getString("chat_info")
+                        if chat_info_json_str:
+                            chat_info = json.loads(chat_info_json_str)
+                        
+                        account_id = resultSet.getString("account_name")
+                        # self.log(Level.INFO, (profile.get("first_name").encode('utf-8')).decode('UTF-8'))
+                        profile_user_info = str(profile.get("first_name").encode('utf-8')).decode('utf-8') + " " + str(profile.get("last_name").encode('utf-8')).decode('UTF-8') + " (" + account_id + ")" 
 
+                        
+                        ID = str(json_data.get("id"))
+                        date = int(json_data.get("date"))
+                        message_type = int(json_data.get("out"))
+                        mess = (json_data.get("body").encode("utf-8")).decode('utf-8')
+                        message_user_id = str(json_data.get("user_id"))
+                        if message_user_id != account_id:
+                            # user_info_string = str(chat_info.get(message_user_id))
+                            if chat_info_json_str:
+                                other_user_json = chat_info.get(message_user_id)
+                                # self.log(Level.INFO, str(other_user_json))
+                                other_user = str(other_user_json.get("f").encode("UTF-8")).decode('utf-8') + " " + str(other_user_json.get("g").encode("UTF-8")).decode('utf-8') + " (" + message_user_id + ")"
+                            else:
+                                other_user = "Идентификатор пользователя: ".decode('UTF-8') + message_user_id 
+                        if message_type == 0:
+                            status = "Входящее".decode('UTF-8')
+                            sender = other_user
+                            reciever = profile_user_info
+                            if int(json_data.get("read_state")) == 1:
+                                status = status + "; Прочитано".decode('UTF-8')
+                            else:
+                                status = status + "; Не прочитано".decode('UTF-8')
+                        else:                        
+                            status = "Исходящее".decode('UTF-8')
+                            sender = profile_user_info
+                            reciever = other_user
+                    except SQLException as e:
+                        self.log(Level.INFO, "Error getting values from vk message table in json (" + e.getMessage() + ")")
                 # Make an artifact on the blackboard, TSK_CONTACT and give it attributes for each of the fields
                 # art = file.newArtifact(BlackboardArtifact.ARTIFACT_TYPE.TSK_VKdb)
                 art = file.newArtifact(artID_vk1)
@@ -139,9 +193,8 @@ def vk(self, progressBar, vk_files):
                     IM_sqlitedb_android.ModuleDataEvent(imdbIngestModuleFactory.moduleName,
                                                         IM_sqlitedb_android.BlackboardArtifact.ARTIFACT_TYPE.TSK_MESSAGE, None))
 
-        file_count = IM_sqlitedb_android.IMDbIngestModule.get_count(self) + 1
-        IM_sqlitedb_android.IMDbIngestModule.set_count(self, file_count)
-        progressBar.progress(file_count)
+        IM_sqlitedb_android.IMDbIngestModule.set_count(self, 1)
+        progressBar.progress(IM_sqlitedb_android.IMDbIngestModule.get_count(self))
         if vk_files.index(file) == 0:
             message = IM_sqlitedb_android.IngestMessage.createMessage(IM_sqlitedb_android.IngestMessage.MessageType.DATA,
                                                                       imdbIngestModuleFactory.moduleName, "Обнаружены базы данных: VK (ВКонтакте)".decode('UTF-8'))

@@ -44,7 +44,7 @@ def viber_messages(self, progressBar, viber_messages_files):
 
         try:
             check_table = stmt.executeQuery("SELECT name FROM sqlite_master where name like '%PARTICIPANTS%_member_id_%'")
-            if check_table.getString("name") is not None:
+            if check_table.getString("name"):
                 base_version = 1
         except SQLException as e:
             self.log(Level.INFO, "Error check viber table (" + e.getMessage() + ")")
@@ -93,9 +93,8 @@ def viber_messages(self, progressBar, viber_messages_files):
                     IM_sqlitedb_android.ModuleDataEvent(imdbIngestModuleFactory.moduleName,
                                                         IM_sqlitedb_android.BlackboardArtifact.ARTIFACT_TYPE.TSK_MESSAGE, None))
 
-        file_count = IM_sqlitedb_android.IMDbIngestModule.get_count(self) + 1
-        IM_sqlitedb_android.IMDbIngestModule.set_count(self, file_count)
-        progressBar.progress(file_count)
+        IM_sqlitedb_android.IMDbIngestModule.set_count(self, 1)
+        progressBar.progress(IM_sqlitedb_android.IMDbIngestModule.get_count(self))
         if viber_messages_files.index(file) == 0:
             message = IM_sqlitedb_android.IngestMessage.createMessage(IM_sqlitedb_android.IngestMessage.MessageType.DATA,
                                                                       imdbIngestModuleFactory.moduleName, "Обнаружены базы данных: Viber (сообщения)".decode('UTF-8'))

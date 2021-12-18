@@ -93,16 +93,16 @@ def kate(self,  progressBar, kate_files):
                     name_mess = resultSet.getString("name_mess")
                     info_arr = []
                     info_arr.append(resultSet.getString("reciever_name"))
-                    if nickname != "" and nickname is not None:
+                    if nickname:
                         info_arr.append(" (логин: ".decode('UTF-8'))
                         info_arr.append(nickname)
                         info_arr.append(") ".decode('UTF-8'))
-                    if birthday != "" and birthday is not None:
+                    if birthday:
                         info_arr.append(", День рождения: ".decode('UTF-8'))
                         info_arr.append(birthday)
                     reciever = ''.join(info_arr)
                     status_arr = []
-                    if name_mess != "" and name_mess is not None:
+                    if name_mess:
                         status_arr.append("Название переписки: \"".decode('UTF-8'))
                         status_arr.append(name_mess)
                         status_arr.append("\"; ".decode('UTF-8'))
@@ -142,15 +142,15 @@ def kate(self,  progressBar, kate_files):
                     birthdate = resultSet_contacts.getString("birthdate")
                     status = resultSet_contacts.getString("status")
                     status_arr = []
-                    if nickname is not None and nickname != "":
+                    if nickname:
                         status_arr.append("Псевдоним пользователя: \"".decode('UTF-8'))
                         status_arr.append(nickname)
                         status_arr.append("\"; ".decode('UTF-8'))
-                    if birthdate is not None and birthdate != "":
+                    if birthdate:
                         status_arr.append("Указанный пользователем день рождения: ".decode('UTF-8'))
                         status_arr.append(birthdate)
                         status_arr.append("; ".decode('UTF-8'))
-                    if status is not None and status != "":
+                    if status:
                         status_arr.append("Указанный пользователем статус: ".decode('UTF-8'))
                         status_arr.append(status)
                         status = ''.join(status_arr)
@@ -193,9 +193,8 @@ def kate(self,  progressBar, kate_files):
                     IM_sqlitedb_android.ModuleDataEvent(imdbIngestModuleFactory.moduleName,
                                                         IM_sqlitedb_android.BlackboardArtifact.ARTIFACT_TYPE.TSK_MESSAGE, None))
 
-        file_count = IM_sqlitedb_android.IMDbIngestModule.get_count(self) + 1
-        IM_sqlitedb_android.IMDbIngestModule.set_count(self, file_count)
-        progressBar.progress(file_count)
+        IM_sqlitedb_android.IMDbIngestModule.set_count(self, 1)
+        progressBar.progress(IM_sqlitedb_android.IMDbIngestModule.get_count(self))
         if kate_files.index(file) == 0:
             message = IM_sqlitedb_android.IngestMessage.createMessage(IM_sqlitedb_android.IngestMessage.MessageType.DATA,
                                                                       imdbIngestModuleFactory.moduleName, "Обнаружены базы данных:  Kate Mobile (ВКонтакте)".decode('UTF-8'))

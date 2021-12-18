@@ -108,7 +108,7 @@ def viber_calls(self, progressBar, viber_calls_files):
                     art.addAttribute(blackboardAttribute(blackboardAttribute.ATTRIBUTE_TYPE.TSK_DIRECTION.getTypeID(),
                                                          imdbIngestModuleFactory.moduleName, "Исходящий".decode('UTF-8')))
 
-                if contact is not None:
+                if contact:
                     art.addAttribute(blackboardAttribute(blackboardAttribute.ATTRIBUTE_TYPE.TSK_NAME.getTypeID(),
                                                          imdbIngestModuleFactory.moduleName, contact))
                 else:
@@ -139,9 +139,8 @@ def viber_calls(self, progressBar, viber_calls_files):
                     IM_sqlitedb_android.ModuleDataEvent(imdbIngestModuleFactory.moduleName,
                                                         IM_sqlitedb_android.BlackboardArtifact.ARTIFACT_TYPE.TSK_MESSAGE, None))
 
-        file_count = IM_sqlitedb_android.IMDbIngestModule.get_count(self) + 1
-        IM_sqlitedb_android.IMDbIngestModule.set_count(self, file_count)
-        progressBar.progress(file_count)
+        IM_sqlitedb_android.IMDbIngestModule.set_count(self, 1)
+        progressBar.progress(IM_sqlitedb_android.IMDbIngestModule.get_count(self))
         if viber_calls_files.index(file) == 0:
             message = IM_sqlitedb_android.IngestMessage.createMessage(IM_sqlitedb_android.IngestMessage.MessageType.DATA,
                                                                       imdbIngestModuleFactory.moduleName, "Обнаружены базы данных:  Viber (звонки)".decode('UTF-8'))

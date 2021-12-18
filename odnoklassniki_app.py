@@ -267,9 +267,8 @@ def odnoklassniki(self, progressBar, odnoklassniki_files):
                         IM_sqlitedb_android.ModuleDataEvent(imdbIngestModuleFactory.moduleName,
                                                             IM_sqlitedb_android.BlackboardArtifact.ARTIFACT_TYPE.TSK_MESSAGE, None))
 
-        file_count = IM_sqlitedb_android.IMDbIngestModule.get_count(self) + 1
-        IM_sqlitedb_android.IMDbIngestModule.set_count(self, file_count)
-        progressBar.progress(file_count)
+        IM_sqlitedb_android.IMDbIngestModule.set_count(self, 1)
+        progressBar.progress(IM_sqlitedb_android.IMDbIngestModule.get_count(self))
         if odnoklassniki_files.index(file) == 0:
             message = IM_sqlitedb_android.IngestMessage.createMessage(IM_sqlitedb_android.IngestMessage.MessageType.DATA,
                                                                       imdbIngestModuleFactory.moduleName, "Обнаружены базы данных: Одноклассники".decode('UTF-8'))

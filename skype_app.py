@@ -109,7 +109,7 @@ def skype(self, progressBar, skype_files):
         account_tmp = []
         if 'account_info' in locals():
             try:
-                if account_info.getString("fullname") is not None:
+                if account_info.getString("fullname"):
                     account_tmp.append(account_info.getString("fullname"))
                     account_tmp.append(" Логин: ".decode('UTF-8'))
                     account_tmp.append(account_info.getString("skypename"))
@@ -163,7 +163,7 @@ def skype(self, progressBar, skype_files):
                     else:
                         tmp = []
                         tmp.append(resultSet_contacts.getString("fullname"))
-                    if skypename is not None:
+                    if skypename:
                         tmp.append(" (Логин: ".decode('UTF-8'))
                         tmp.append(resultSet_contacts.getString("skypename"))
                         tmp.append(")".decode('UTF-8'))
@@ -199,9 +199,9 @@ def skype(self, progressBar, skype_files):
 
                 art = file.newArtifact(artID_calllog_skype)
                 tmp = []
-                if dispname is not None:
+                if dispname:
                     tmp.append(dispname)
-                if contact is not None:
+                if contact:
                     tmp.append(" (".decode('UTF-8'))
                     tmp.append(contact)
                     tmp.append(")".decode('UTF-8'))
@@ -230,9 +230,8 @@ def skype(self, progressBar, skype_files):
                     IM_sqlitedb_android.ModuleDataEvent(imdbIngestModuleFactory.moduleName,
                                                         IM_sqlitedb_android.BlackboardArtifact.ARTIFACT_TYPE.TSK_MESSAGE, None))
 
-        file_count = IM_sqlitedb_android.IMDbIngestModule.get_count(self) + 1
-        IM_sqlitedb_android.IMDbIngestModule.set_count(self, file_count)
-        progressBar.progress(file_count)
+        IM_sqlitedb_android.IMDbIngestModule.set_count(self, 1)
+        progressBar.progress(IM_sqlitedb_android.IMDbIngestModule.get_count(self))
         if skype_files.index(file) == 0:
             message = IM_sqlitedb_android.IngestMessage.createMessage(IM_sqlitedb_android.IngestMessage.MessageType.DATA,
                                                                       imdbIngestModuleFactory.moduleName, "Обнаружены базы данных: Skype".decode('UTF-8'))
